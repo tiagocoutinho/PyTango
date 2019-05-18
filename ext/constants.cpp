@@ -14,6 +14,9 @@
 #include "tango_numpy.h"
 #include "tgutils.h"
 
+#define XSTR(s) STR(s)
+#define STR(s) #s
+
 using namespace boost::python;
 
 long TANGO_VERSION_HEX;
@@ -33,7 +36,7 @@ void export_constants()
 #else
     consts_scope.attr("NUMPY_SUPPORT") = true;
 #ifdef PYTANGO_NUMPY_VERSION
-    consts_scope.attr("NUMPY_VERSION") = PYTANGO_NUMPY_VERSION;
+    consts_scope.attr("NUMPY_VERSION") = XSTR(PYTANGO_NUMPY_VERSION);
 #else
     consts_scope.attr("NUMPY_VERSION") = "0.0.0";
 #endif

@@ -346,6 +346,30 @@ class install(dftinstall):
     sub_commands.append(('install_html', has_html))
 
 
+def windows_boost_library_name(boost_root=None):
+    name = 'boost_python'
+    name += "{v[0]}{v[1]}".format(v=PYTHON_VERSION)
+    if PYTHON_VERSION[0:2] == (2, 7):
+        name += '-vc90'
+    elif PYTHON_VERSION[0:2] < (3, 5):
+        name += '-vc100'
+    else:
+        name += '-vc140'
+    name += '-mt' # multi threaded
+
+    name += '-x64' if IS64 else '-x32'
+    if boost_root:
+        lib_dir = os.path.join(boost_root, 'lib')
+        # find the latest version of boost python compatible with this setup
+        for item in sorted(os.listdir(lib_dir), reverse=True):
+            if item.startswith(name):
+                fname, ext = os.path.splitext(item)
+                if ext == '.lib':
+                    name = fname
+                    break
+    return name
+
+
 def setup_args():
 
     directories = {
@@ -377,6 +401,8 @@ def setup_args():
         elif GENTOO:
             suffix = "-{v[0]}.{v[1]}".format(v=PYTHON_VERSION)
             boost_library_name += suffix
+        elif WINDOWS:
+            boost_library_name = windows_boost_library_name()
     else:
         inc_dir = os.path.join(BOOST_ROOT, 'include')
         lib_dirs = [os.path.join(BOOST_ROOT, 'lib')]
@@ -387,6 +413,8 @@ def setup_args():
 
         directories['include_dirs'].append(inc_dir)
         directories['library_dirs'].extend(lib_dirs)
+        if WINDOWS:
+            boost_library_name = windows_boost_library_name(BOOST_ROOT)
 
     directories['libraries'].append(boost_library_name)
 
@@ -396,7 +424,7 @@ def setup_args():
     if numpy_c_include is not None:
         directories['include_dirs'].append(numpy_c_include)
 
-    macros = []
+    macros = [('NPY_NO_DEPRECATED_API', None)]
     if not has_numpy():
         macros.append(('DISABLE_PYTANGO_NUMPY', None))
     else:
@@ -404,6 +432,9 @@ def setup_args():
 
     if POSIX:
         directories = pkg_config(*sys_libs, **directories)
+    elif WINDOWS:
+        macros += [('WIN32',None), ('_WINDLL',None)]
+        directories['libraries'] += ['omniORB4_rt.lib', 'COS4_rt.lib', 'omniDynamic4_rt.lib', 'omnithread_rt.lib']
 
     Release = get_release_info()
 
@@ -495,6 +526,9 @@ def setup_args():
         extra_compile_args += ['-g', '-O0']
         extra_link_args += ['-g', '-O0']
 
+    if WINDOWS:
+        extra_link_args += ['/FORCE:UNRESOLVED']
+
     src_dir = abspath('ext')
     client_dir = src_dir
     server_dir = os.path.join(src_dir, 'server')
@@ -515,6 +549,14 @@ def setup_args():
     include_dirs = uniquify(directories['include_dirs'])
     library_dirs = uniquify(directories['library_dirs'])
     libraries = uniquify(directories['libraries'])
+
+    include_dirs += ["c:\\Tiago\\boost", "C:\\Tiago\\Tango\\9.3.3\\msvc14_64\\include"]
+
+    import pprint
+    pprint.pprint(macros)
+    pprint.pprint(include_dirs)
+    pprint.pprint(library_dirs)
+    pprint.pprint(libraries)
 
     pytango_ext = Extension(
         name='_tango',
